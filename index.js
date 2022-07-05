@@ -16,8 +16,7 @@ async function autoScrollWithPuppeteer(url) {
 
     var data = await page.content();
 
-
-    await browser.close(); // đóng trang web
+    await page.close(); // đóng trang web
 
     return data;
 }
