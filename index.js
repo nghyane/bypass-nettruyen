@@ -3,7 +3,7 @@ const {launch} = require("puppeteer");
 
 async function autoScrollWithPuppeteer(url) {
 
-    const browser = await launch({ headless: true }); // khởi tạo browser
+    const browser = await launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] }); // khởi tạo browser
     const page = await browser.newPage();  // tạo một trang web mới
     await page.setViewport({
         width: 1200,
