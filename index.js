@@ -1,57 +1,104 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
 const Koa = require('koa');
 const bodyParser = require('koa-bodyparser');
 const app = new Koa();
 app.use(bodyParser());
 
-(async () => {
-    let options = {
-        headless: true,
-        args: [
-            '--disable-speech-api', // 	Disables the Web Speech API (both speech recognition and synthesis)
-            '--disable-background-networking', // Disable several subsystems which run network requests in the background. This is for use 									  // when doing network performance testing to avoid noise in the measurements. ↪
-            '--disable-background-timer-throttling', // Disable task throttling of timer tasks from background pages. ↪
-            '--disable-backgrounding-occluded-windows',
-            '--disable-breakpad',
-            '--disable-client-side-phishing-detection',
-            '--disable-component-update',
-            '--disable-default-apps',
-            '--disable-dev-shm-usage',
-            '--disable-domain-reliability',
-            '--disable-extensions',
-            '--disable-features=AudioServiceOutOfProcess',
-            '--disable-hang-monitor',
-            '--disable-ipc-flooding-protection',
-            '--disable-notifications',
-            '--disable-offer-store-unmasked-wallet-cards',
-            '--disable-popup-blocking',
-            '--disable-print-preview',
-            '--disable-prompt-on-repost',
-            '--disable-renderer-backgrounding',
-            '--disable-setuid-sandbox',
-            '--disable-sync',
-            '--hide-scrollbars',
-            '--ignore-gpu-blacklist',
-            '--metrics-recording-only',
-            '--mute-audio',
-            '--no-default-browser-check',
-            '--no-first-run',
-            '--no-pings',
-            '--no-sandbox',
-            '--no-zygote',
-            '--password-store=basic',
-            '--use-gl=swiftshader',
-            '--use-mock-keychain',
-            '--no-sandbox', '--disable-setuid-sandbox', '--enable-experimental-web-platform-features'
-        ]
-    };
+const randomUseragent = require('random-useragent');
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36';
 
-    const browser = await puppeteer.launch(options);
+const UA = randomUseragent.getRandom() || USER_AGENT;
+
+/**
+ * Class: BrowserHandler
+ *     Relaunch Browser when Closed
+ *     Return false when Browser is Disconnected
+ */
+
+class BrowserHandler {
+    constructor() {
+        let options = {
+            headless: true,
+            args: [
+                '--disable-speech-api', // 	Disables the Web Speech API (both speech recognition and synthesis)
+                '--disable-background-networking', // Disable several subsystems which run network requests in the background. This is for use 									  // when doing network performance testing to avoid noise in the measurements. ↪
+                '--disable-background-timer-throttling', // Disable task throttling of timer tasks from background pages. ↪
+                '--disable-backgrounding-occluded-windows',
+                '--disable-breakpad',
+                '--disable-client-side-phishing-detection',
+                '--disable-component-update',
+                '--disable-default-apps',
+                '--disable-dev-shm-usage',
+                '--disable-domain-reliability',
+                '--disable-extensions',
+                '--disable-features=AudioServiceOutOfProcess',
+                '--disable-hang-monitor',
+                '--disable-ipc-flooding-protection',
+                '--disable-notifications',
+                '--disable-offer-store-unmasked-wallet-cards',
+                '--disable-popup-blocking',
+                '--disable-print-preview',
+                '--disable-prompt-on-repost',
+                '--disable-renderer-backgrounding',
+                '--disable-setuid-sandbox',
+                '--disable-sync',
+                '--hide-scrollbars',
+                '--ignore-gpu-blacklist',
+                '--metrics-recording-only',
+                '--mute-audio',
+                '--no-default-browser-check',
+                '--no-first-run',
+                '--no-pings',
+                '--no-sandbox',
+                '--no-zygote',
+                '--password-store=basic',
+                '--use-gl=swiftshader',
+                '--use-mock-keychain',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--enable-experimental-web-platform-features'
+            ]
+        };
+
+        const launch_browser = async () => {
+            this.browser = false;
+            this.browser = await puppeteer.launch(options);
+            this.browser.on('disconnected', launch_browser);
+        };
+
+        (async () => {
+            await launch_browser();
+        })();
+    }
+}
+
+/**
+ * Function: wait_for_browser
+ *     Wait for Browser to Finish Launching
+ */
+
+const wait_for_browser = browser_handler => new Promise((resolve, reject) => {
+    const browser_check = setInterval(() => {
+        if (browser_handler.browser !== false) {
+            clearInterval(browser_check);
+            resolve(true);
+        }
+    }, 100 );
+});
+
+(async () => {
+    const browser_handler = new BrowserHandler;
+    await wait_for_browser(browser_handler);
+
     app.use(async ctx => {
         if (ctx.query.url) {
             const url = ctx.url.replace("/?url=", "");
-            const page = await browser.newPage();
-            
+            console.log("Bypass: " + url);
+
+            const page = await browser_handler.browser.newPage();
 
             const blocked_domains = [
                 'googlesyndication.com',
@@ -61,17 +108,21 @@ app.use(bodyParser());
                 'gstatic.com',
                 'adskeeper.co.uk'
             ];
-            
+
+
+            await page.setCacheEnabled(true);
+            await page.setRequestInterception(true)
+
             page.on('request', request => {
                 const url = request.url()
                 if (blocked_domains.some(domain => url.includes(domain))) {
                     return request.abort();
                 }
-                
+
                 if ([ 'image', 'stylesheet', 'font' ].indexOf( request.resourceType() ) !== -1 ) {
                     return request.abort();
-                } 
-                
+                }
+
                 request.continue();
 
             });
@@ -91,13 +142,19 @@ app.use(bodyParser());
                     })(Element.prototype.attachShadow);
                 }
             );
-            
-            await page.setCacheEnabled(true);
-            await page.setRequestInterception(true)
+
+            await page.setUserAgent(UA);
+            await page.setJavaScriptEnabled(true);
+
+            await page.setViewport({
+                width: 317,
+                height: 600
+            });
 
             await page.goto(url); // điều hướng trang web theo URL
+
             await autoScroll(page, {waitUntil: 'domcontentloaded'});
-            
+
             ctx.body = await page.evaluate(async () => {
                 function extractHTML(node) {
 
@@ -158,7 +215,7 @@ app.use(bodyParser());
 
                 return extractHTML(document.body)
             });
-            
+
         } else {
             ctx.body = "Please specify the URL in the 'url' query string.";
         }
@@ -171,7 +228,7 @@ async function autoScroll(page){
         await new Promise((resolve, reject) => {
 
             var totalHeight = 0;
-            var distance = 1000;
+            var distance = 200;
             var timer = setInterval(() => {
                 var scrollHeight = document.body.scrollHeight;
                 window.scrollBy(0, distance);
