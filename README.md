@@ -13,6 +13,7 @@ sudo yum install -y chromium
 
 # Tự động deloy
 ```
+yarn
 yarn global add pm2
 pm2 start index.js
 ```
