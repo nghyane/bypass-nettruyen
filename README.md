@@ -4,3 +4,7 @@
 
 
 `sudo yum install -y chromium`
+
+`yarn global add pm2`
+`om2 index.js`
+
