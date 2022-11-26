@@ -13,7 +13,9 @@ yarn
 ```
 
 # Tự động deloy
-`yarn global add pm2`
-`pm2 index.js`
+```
+yarn global add pm2
+pm2 index.js
+```
 
 
