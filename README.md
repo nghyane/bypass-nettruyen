@@ -1,3 +1,7 @@
+# Yêu cầu
+Nodejs >=16
+Npm hoặc yarn
+
 # Cài đặt trình duyệt
 
 ```
