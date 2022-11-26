@@ -15,7 +15,7 @@ yarn
 # Tự động deloy
 ```
 yarn global add pm2
-pm2 index.js
+pm2 start index.js
 ```
 
 
